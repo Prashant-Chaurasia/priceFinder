@@ -3,6 +3,7 @@ package com.finder.priceFinder.services;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.jsoup.Jsoup;
 
@@ -13,9 +14,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.finder.priceFinder.entities.ProductHtmlInfo;
+import com.finder.priceFinder.repositories.ProductHtmlInfoRepository;
 
 @Service
 public class ProductServiceImpl implements ProductService{
+
+    @Autowired
+    private ProductHtmlInfoRepository productHtmlInfoRepository;
 
     @Override
     public ProductHtmlInfo crawlAndSave(String url, String sku) {
@@ -35,7 +40,7 @@ public class ProductServiceImpl implements ProductService{
         // }
 
         ProductHtmlInfo productHtmlInfo = new ProductHtmlInfo((long) 1, doc.html(), new Date(), sku, url);
-        System.out.println(productHtmlInfo);
+        productHtmlInfoRepository.save(productHtmlInfo);
         saveProductDetails(doc);
         return productHtmlInfo;
     }

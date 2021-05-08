@@ -2,17 +2,27 @@ package com.finder.priceFinder.entities;
 
 import java.util.Date;
 
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Lob;
 import javax.persistence.Temporal;
 import javax.persistence.TemporalType;
 
+@Entity
 public class ProductHtmlInfo {
+    @Id
     private Long id;
+    
+    @Lob
     private String html;
     
     @Temporal(TemporalType.TIMESTAMP)
     private Date crawledAt;
     private String sku;
     private String url;
+
+    public ProductHtmlInfo() {
+    }
 
     public ProductHtmlInfo(Long id, String html, Date crawledAt, String sku, String url) {
         super();
