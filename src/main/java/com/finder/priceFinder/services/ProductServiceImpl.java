@@ -58,11 +58,11 @@ public class ProductServiceImpl implements ProductService{
             sku = crawler.getSkuFromUrl(url);
         }
         ProductHtmlInfo productHtmlInfo = productHtmlInfoRepository.findBySku(sku);
-        if (!isCrawledInTime(productHtmlInfo)) {
-            productHtmlInfo = crawler.getProductHtmlInfo(url, sku);
+        // if (!isCrawledInTime(productHtmlInfo)) {
+            // productHtmlInfo = crawler.getProductHtmlInfo(url, sku);
             productHtmlInfo = saveProductHtmlInfo(productHtmlInfo);
             extractAndSaveProductDetails(productHtmlInfo);
-        }
+        // }
         return productHtmlInfo;
     }
 
@@ -132,7 +132,4 @@ public class ProductServiceImpl implements ProductService{
 
         return trends;
     }
-
-    
-
 }

@@ -23,14 +23,15 @@ public class Crawler {
         String urlToParse = crawlerStrategy.getUrlToCrawl(url, sku); 
         Document doc = crawlUrl(urlToParse);
         ProductHtmlInfo productHtmlInfo = new ProductHtmlInfo(doc.html(), new Date(), sku, urlToParse);
-        System.out.println(productHtmlInfo.toString());
         return productHtmlInfo;
     }
 
     private Document crawlUrl(String url) {
         Document doc = null;
         try {
-            doc = Jsoup.connect(url).get();
+            doc = Jsoup.connect(url).userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36")
+            .referrer("http://www.amazon.in")
+            .get();
             return doc;
 
         } catch (IOException e) {
