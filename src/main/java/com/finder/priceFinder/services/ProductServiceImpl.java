@@ -1,20 +1,23 @@
 package com.finder.priceFinder.services;
 
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.jsoup.Jsoup;
 
-import java.io.IOException;
-import java.time.Instant;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
+import com.finder.priceFinder.entities.Product;
 import com.finder.priceFinder.entities.ProductHtmlInfo;
+import com.finder.priceFinder.entities.TimestampPrice;
+import com.finder.priceFinder.entities.Trend;
 import com.finder.priceFinder.repositories.ProductHtmlInfoRepository;
+import com.finder.priceFinder.repositories.ProductRepository;
+import com.finder.priceFinder.strategy.AmazonCrawlerStrategy;
+import com.finder.priceFinder.strategy.Crawler;
 
 @Service
 public class ProductServiceImpl implements ProductService{
@@ -22,63 +25,114 @@ public class ProductServiceImpl implements ProductService{
     @Autowired
     private ProductHtmlInfoRepository productHtmlInfoRepository;
 
+    @Autowired
+    private ProductRepository productRepository;
+
+    private Crawler crawler;
+
+    // This is temporary, based on the client we can decide the crawling strategy
+    public ProductServiceImpl() {
+        this.crawler = new Crawler(new AmazonCrawlerStrategy());
+    }
+
+    private Boolean isCrawledInTime(ProductHtmlInfo productHtmlInfo) {
+        boolean isCrawled = false;
+        if (productHtmlInfo != null) {
+            Date now = new Date();
+            Date crawledAt = productHtmlInfo.getCrawledAt();
+
+            if (crawledAt != null) {
+                long timeDiffInMillis = Math.abs(now.getTime() - productHtmlInfo.getCrawledAt().getTime());
+                long diff = TimeUnit.MINUTES.convert(timeDiffInMillis, TimeUnit.MILLISECONDS);
+                if (diff < 60) 
+                    isCrawled = true;
+            }
+
+        }
+        return isCrawled;
+    } 
+
     @Override
     public ProductHtmlInfo crawlAndSave(String url, String sku) {
-        String urlToParse = url;
-        
-        if (url != null){
-            sku = getSkuFromUrl(url);
-        } 
-
-        if (sku != null) {
-            urlToParse = "https://www.amazon.in/dp/" + sku;
+        if (sku == null) {
+            sku = crawler.getSkuFromUrl(url);
         }
-        
-        Document doc = crawlUrl(urlToParse);
-        // if (doc == null) {
-        //     return "Something went wrong";
-        // }
-
-        ProductHtmlInfo productHtmlInfo = new ProductHtmlInfo((long) 1, doc.html(), new Date(), sku, url);
-        productHtmlInfoRepository.save(productHtmlInfo);
-        saveProductDetails(doc);
+        ProductHtmlInfo productHtmlInfo = productHtmlInfoRepository.findBySku(sku);
+        if (!isCrawledInTime(productHtmlInfo)) {
+            productHtmlInfo = crawler.getProductHtmlInfo(url, sku);
+            productHtmlInfo = saveProductHtmlInfo(productHtmlInfo);
+            extractAndSaveProductDetails(productHtmlInfo);
+        }
         return productHtmlInfo;
     }
 
-    private String getSkuFromUrl(String url) {
-        String sku = null;
-        Pattern pattern = Pattern.compile("dp/\\w+");
-        Matcher matcher = pattern.matcher(url);
-        if (matcher.find()){
-            String matchSplit[] = matcher.group().split("/");
-            if (matchSplit.length == 2) {
-                sku = matchSplit[1];
-            }
-        }
-        return sku;
+    private ProductHtmlInfo saveProductHtmlInfo(ProductHtmlInfo productHtmlInfo) {
+        productHtmlInfoRepository.save(productHtmlInfo);
+        productHtmlInfo = productHtmlInfoRepository.findBySku(productHtmlInfo.getSku());
+        return productHtmlInfo;
     }
 
-    private Document crawlUrl(String url) {
-        Document doc = null;
+    private Product extractAndSaveProductDetails(ProductHtmlInfo productHtmlInfo) {
+        Product product = crawler.getProductDetails(productHtmlInfo);
+        productRepository.save(product);
+        return productRepository.findById(product.getId()).get();
+    }
+
+    @Override
+    public Product getProductDetails(String url, String sku) {
+        if (sku == null) {
+            sku = crawler.getSkuFromUrl(url);
+        }
+        ProductHtmlInfo productHtmlInfo = productHtmlInfoRepository.findBySku(sku);
+        // List<Product> product = productRepository.findBySku(sku);
+        Product product = productRepository.findBySkuOrderByCreatedAt(sku);
+        if (!isCrawledInTime(productHtmlInfo)) {
+            productHtmlInfo = crawler.getProductHtmlInfo(url, sku);
+            productHtmlInfo = saveProductHtmlInfo(productHtmlInfo);
+            product = extractAndSaveProductDetails(productHtmlInfo);
+        }
+        return product;
+    }
+
+    @Override
+    public Product getLastUpdatedProductDetails(String url, String sku, String date) {
+        if (sku == null) {
+            sku = crawler.getSkuFromUrl(url);
+        }
+        Product recentProduct;
         try {
-            doc = Jsoup.connect(url).get();
-            return doc;
-
-        } catch (IOException e) {
+            Date datetime = new SimpleDateFormat("dd/MM/yyyy").parse(date);
+            System.out.println(datetime.toString());
+            recentProduct = productRepository.findLatestBySkuAndDate(sku, datetime);
+        } catch (ParseException e) {
             e.printStackTrace();
-        }
-        return doc;
+            return null;
+        }  
+        return recentProduct;
     }
 
-    private void saveProductDetails(Document document) {
-        Element title = document.select("#productTitle").first();
-        Element price = document.select("#priceblock_ourprice").first();
-        Elements desc = document.select("#productDescription_feature_div :nth-child(2)");
-        int len = desc.size();
-        String description = desc.get(len-1).text();
-        System.out.println(title.text());
-        System.out.println(price.text());
-        System.out.println(description);
+    @Override
+    public List<Product> getAllProducts(){
+        return productRepository.findAll();
     }
+
+    @Override
+    public List<Trend> getProductTrends() {
+        List<String> skuList = productRepository.findSku();
+
+        List<Trend> trends = new ArrayList<>();
+        for (String sku : skuList) {
+            Trend trend = new Trend();
+            trend.setSku(sku);
+
+            List<TimestampPrice> timestampPrices = productRepository.findPriceTrendOfProduct(sku);
+            trend.setTimestampPrice(timestampPrices);
+            trends.add(trend);
+        }
+
+        return trends;
+    }
+
     
+
 }

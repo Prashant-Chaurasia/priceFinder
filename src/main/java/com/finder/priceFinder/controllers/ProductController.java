@@ -1,5 +1,9 @@
 package com.finder.priceFinder.controllers;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.finder.priceFinder.entities.Product;
 import com.finder.priceFinder.entities.ProductHtmlInfo;
 import com.finder.priceFinder.services.ProductService;
 
@@ -19,8 +23,23 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping() 
-    public ResponseEntity<?> getProducts(){
-        return ResponseEntity.ok("Testing");
+    public ResponseEntity<?> getProducts(@RequestParam(required = false, name = "url") String url, @RequestParam(required = false, name = "sku") String sku, @RequestParam(required = false, name = "date") String date) {
+        
+        ResponseEntity<?> resp;
+        
+        if (url == null && sku == null && date == null) {
+            List<Product> products = new ArrayList<>(); 
+            products = productService.getAllProducts();
+            resp = new ResponseEntity<>(products, HttpStatus.OK);
+        } else if (date == null){
+            Product product = productService.getProductDetails(url, sku);
+            resp = new ResponseEntity<>(product, HttpStatus.OK);
+        } else {
+            Product product = productService.getLastUpdatedProductDetails(url, sku, date);
+            resp = new ResponseEntity<>(product, HttpStatus.OK);
+        }
+
+        return resp;
     }
 
     @GetMapping("/html")
@@ -29,6 +48,13 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Query Params missing");
         }
         ProductHtmlInfo resp = productService.crawlAndSave(url, sku);
-        return new ResponseEntity<>(resp, HttpStatus.OK);
+        return new ResponseEntity<>(resp.getHtml(), HttpStatus.OK);
+    }
+
+    @GetMapping("/trends")
+    public ResponseEntity<?> getProductTrends() {
+        ResponseEntity<?> resp;
+        resp = new ResponseEntity<>(productService.getProductTrends(), HttpStatus.OK);
+        return resp;
     }
 }

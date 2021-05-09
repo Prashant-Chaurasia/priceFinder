@@ -2,43 +2,37 @@ package com.finder.priceFinder.entities;
 
 import java.util.Date;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
-import javax.persistence.Lob;
-import javax.persistence.Temporal;
-import javax.persistence.TemporalType;
+import javax.persistence.Table;
 
 @Entity
+@Table(name = "product_html_info")
 public class ProductHtmlInfo {
-    @Id
-    private Long id;
     
-    @Lob
+    @Id
+    @Column(name = "sku", updatable = false)
+    private String sku;
+
+    @Column(name = "html", nullable = false, columnDefinition = "TEXT")
     private String html;
     
-    @Temporal(TemporalType.TIMESTAMP)
+    @Column(name = "crawled_at", nullable = false, columnDefinition = "TIMESTAMP")
     private Date crawledAt;
-    private String sku;
+    
+    @Column(name = "url", nullable = false, columnDefinition = "TEXT")
     private String url;
 
     public ProductHtmlInfo() {
     }
 
-    public ProductHtmlInfo(Long id, String html, Date crawledAt, String sku, String url) {
+    public ProductHtmlInfo(String html, Date crawledAt, String sku, String url) {
         super();
-        this.id = id;
         this.html = html;
         this.crawledAt = crawledAt;
         this.sku = sku;
         this.url = url;
-    }
-
-    public Long getId() {
-        return this.id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
     }
 
     public String getHtml() {
@@ -72,4 +66,14 @@ public class ProductHtmlInfo {
     public void setUrl(String url) {
         this.url = url;
     }
+
+    @Override
+    public String toString() {
+        return "{" +
+            " sku='" + getSku() + "'" +
+            ", crawledAt='" + getCrawledAt() + "'" +
+            ", url='" + getUrl() + "'" +
+            "}";
+    }
+
 }
